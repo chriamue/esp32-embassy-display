@@ -5,8 +5,11 @@ use embedded_graphics::{
 };
 use esp_idf_hal::{delay::FreeRtos, gpio::PinDriver};
 use esp_idf_svc::{eventloop::EspSystemEventLoop, hal::peripherals::Peripherals};
+use image::{DynamicImage, GrayImage, Luma};
 mod display;
 use display::Display;
+
+use qrcode::QrCode;
 
 fn main() -> anyhow::Result<()> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -40,9 +43,12 @@ fn main() -> anyhow::Result<()> {
 
     display.print("Hello, world!").unwrap();
 
+    let code = QrCode::new(b"Hello, world!")?;
+    let gray_image: image::GrayImage = code.render::<Luma<u8>>().max_dimensions(128, 64).build();
+
     let messages = vec!["Love Rust ❤️", "BCX2024 🚀", "Embedded Hardware 🛠"];
 
-    let raw_image = ImageRaw::new(include_bytes!("./rust.raw"), 64);
+    let raw_image: ImageRaw<'_, BinaryColor> = ImageRaw::new(include_bytes!("./rust.raw"), 64);
 
     loop {
         led.set_high()?;
@@ -53,8 +59,11 @@ fn main() -> anyhow::Result<()> {
         led.set_low()?;
         FreeRtos::delay_ms(1000);
 
+        display.show_dynamic_image(DynamicImage::ImageLuma8(gray_image.clone()))?;
+        FreeRtos::delay_ms(5000);
+
         for message in &messages {
-            display.print(message).unwrap();
+            display.print(message)?;
             FreeRtos::delay_ms(2000);
         }
     }
